@@ -20,7 +20,7 @@ nav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.nav{
 <nav><button class="nav active" data-tab="home">முகப்பு</button><button class="nav" data-tab="add">＋ செலவு சேர்</button><button class="nav" data-tab="report">சுருக்கம்</button></nav>
 <section id="home" class="panel card"><h2>செலவுப் பதிவுகள்</h2><label>தேதி</label><input id="viewDate" type="date"><div class="chips" id="filters"></div><div id="entries"></div></section>
 <section id="add" class="panel card hidden"><h2>புதிய செலவைப் பதிவு செய்யுங்கள்</h2><form id="expenseForm"><label>தேதி</label><input id="date" type="date" required><label>செலவு விவரம்</label><input id="desc" placeholder="உதா: Tea, Food, Home Use" required><label>தொகை (₹)</label><input id="amount" type="number" min="1" step="0.01" placeholder="உதா: 60" required><label>செலவு வகை</label><select id="category"></select><label>பணம் செலுத்திய முறை (விருப்பம்)</label><select id="payment"><option>UPI</option><option>ரொக்கம்</option><option>டெபிட் கார்டு</option><option>கிரெடிட் கார்டு</option><option>மற்றவை</option></select><button class="primary">செலவைச் சேமிக்கவும்</button></form></section>
-<section id="report" class="panel card hidden"><h2>செலவு சுருக்கம்</h2><label>எந்த மாதம்?</label><input id="reportMonth" type="month"><div class="row"><span>இந்த மாதச் செலவு</span><b id="expenseView">₹0</b></div><div class="row"><span>இந்த வருடச் செலவு</span><b id="yearView">₹0</b></div><div class="row"><b>இதுவரை மொத்தச் செலவு</b><b id="lifetimeView">₹0</b></div><label>மாத வருமானம் (₹)</label><input id="income" type="number" min="0" placeholder="மாத வருமானம்"><div class="row"><span>மாத வருமானம்</span><b id="incomeView">₹0</b></div><div class="row"><b>மாதச் சேமிப்பு</b><b id="savingView">₹0</b></div><h2 style="margin-top:20px">செலவு வகை வாரியான கணக்கு</h2><div id="categoryTotals"></div></section>
+<section id="report" class="panel card hidden"><h2>செலவு சுருக்கம்</h2><label>எந்த மாதம்?</label><input id="reportMonth" type="month"><div class="row"><span>இந்த மாதச் செலவு</span><b id="expenseView">₹0</b></div><div class="row"><span>இந்த வருடச் செலவு</span><b id="yearView">₹0</b></div><div class="row"><b>இதுவரை மொத்தச் செலவு</b><b id="lifetimeView">₹0</b></div><label>தொடக்க இருப்பு (₹) — ஒருமுறை மட்டும்</label><input id="openingBalance" type="number" min="0" step="0.01" placeholder="உதா: 20000"><div class="row"><span>மொத்த வருமானம் (இதுவரை)</span><b id="incomeLifetimeView">₹0</b></div><div class="row"><span>தற்போதைய மீதித் தொகை</span><b id="balanceReportView">₹0</b></div><label>மாத வருமானம் (₹)</label><input id="income" type="number" min="0" placeholder="மாத வருமானம்"><button class="primary" type="button" id="backupButton">பதிவுகளை CSV-ஆக Download செய்யவும்</button><div class="row"><span>மாத வருமானம்</span><b id="incomeView">₹0</b></div><div class="row"><b>மாதச் சேமிப்பு</b><b id="savingView">₹0</b></div><h2 style="margin-top:20px">செலவு வகை வாரியான கணக்கு</h2><div id="categoryTotals"></div></section>
 <div class="foot">Google Login செய்தால் ஒரே கணக்கு iPhone, Android, Laptop-ல் sync ஆகும்.</div>
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -31,7 +31,7 @@ const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),p
 provider.setCustomParameters({prompt:"select_account"});
 const $=id=>document.getElementById(id),today=new Date().toLocaleDateString("en-CA");
 const cats=["உணவு","மளிகை","பெட்ரோல் / போக்குவரத்து","ஷாப்பிங்","மருத்துவம்","வீடு","கட்டணங்கள்","பொழுதுபோக்கு","பயணம்","தனிப்பட்ட செலவு","மற்றவை"];
-let data=JSON.parse(localStorage.getItem("selavu_entries")||"[]"),income=JSON.parse(localStorage.getItem("selavu_income")||"{}"),filter="அனைத்தும்",user=null,unsub=null,cloudReady=false,timer=null;
+let data=JSON.parse(localStorage.getItem("selavu_entries")||"[]"),income=JSON.parse(localStorage.getItem("selavu_income")||"{}"),openingBalance=Number(localStorage.getItem("selavu_opening_balance")||0),filter="அனைத்தும்",user=null,unsub=null,cloudReady=false,timer=null;
 const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
 $("date").value=today;$("viewDate").value=today;$("reportMonth").value=today.slice(0,7);
 $("category").innerHTML=cats.map(c=>`<option>${c}</option>`).join("");
@@ -43,7 +43,9 @@ function render(){
  const m=$("viewDate").value.slice(0,7),r=monthRows(m),sum=r.reduce((s,x)=>s+Number(x.amount||0),0);
  $("monthLabel").textContent=m+" மாதச் செலவு";$("monthTotal").textContent=money(sum);
  $("todayTotal").textContent=money(data.filter(x=>x.date===today).reduce((s,x)=>s+Number(x.amount||0),0));
- $("balance").textContent=money(Number(income[m]||0)-sum);
+ const lifetimeIncome=Object.values(income).reduce((s,v)=>s+Number(v||0),0);
+  const lifetimeExpense=data.reduce((s,x)=>s+Number(x.amount||0),0);
+  $("balance").textContent=money(openingBalance+lifetimeIncome-lifetimeExpense);
  const shown=r.filter(x=>filter==="அனைத்தும்"||x.category===filter).slice().reverse();
  $("entries").innerHTML=shown.length?shown.map(x=>`<div class="row"><div><b>${esc(x.desc)}</b><div class="muted" style="font-size:12px">${esc(x.date)} · ${esc(x.category)} · ${esc(x.payment)}</div></div><span class="amt">${money(x.amount)}</span><button class="delete" type="button" data-del="${esc(x.id)}">நீக்கு</button></div>`).join(""):'<div class="empty">இன்னும் செலவுகள் இல்லை.<br>“செலவு சேர்” என்பதை அழுத்தித் தொடங்குங்கள்.</div>';
  document.querySelectorAll("[data-filter]").forEach(b=>b.classList.toggle("selected",b.dataset.filter===filter));renderReport();
@@ -52,21 +54,23 @@ function renderReport(){
  const m=$("reportMonth").value,yr=m.slice(0,4),r=monthRows(m),monthTotal=r.reduce((s,x)=>s+Number(x.amount||0),0);
  const yearTotal=data.filter(x=>String(x.date||"").startsWith(yr)).reduce((s,x)=>s+Number(x.amount||0),0);
  const allTotal=data.reduce((s,x)=>s+Number(x.amount||0),0),inc=Number(income[m]||0);
+  const allIncome=Object.values(income).reduce((s,v)=>s+Number(v||0),0);
  $("expenseView").textContent=money(monthTotal);$("yearView").textContent=money(yearTotal);$("lifetimeView").textContent=money(allTotal);
  $("income").value=inc||"";$("incomeView").textContent=money(inc);$("savingView").textContent=money(inc-monthTotal);
+  $("openingBalance").value=openingBalance||"";$("incomeLifetimeView").textContent=money(allIncome);$("balanceReportView").textContent=money(openingBalance+allIncome-allTotal);
  $("categoryTotals").innerHTML=cats.map(c=>`<div class="row"><span>${c}</span><b>${money(r.filter(x=>x.category===c).reduce((s,x)=>s+Number(x.amount||0),0))}</b></div>`).join("");
 }
-function localSave(){localStorage.setItem("selavu_entries",JSON.stringify(data));localStorage.setItem("selavu_income",JSON.stringify(income));render()}
-function queueCloudSave(){if(!user||!cloudReady)return;clearTimeout(timer);timer=setTimeout(async()=>{try{$("syncStatus").textContent="Cloud-ல் சேமிக்கிறது…";await setDoc(ref(),{expenses:data,income,updatedAt:Date.now()});$("syncStatus").textContent="Cloud Sync முடிந்தது ✓"}catch(e){$("syncStatus").textContent="Cloud பிழை: "+(e.code||e.message)}},400)}
+function localSave(){localStorage.setItem("selavu_entries",JSON.stringify(data));localStorage.setItem("selavu_income",JSON.stringify(income));localStorage.setItem("selavu_opening_balance",String(openingBalance));render()}
+function queueCloudSave(){if(!user||!cloudReady)return;clearTimeout(timer);timer=setTimeout(async()=>{try{$("syncStatus").textContent="Cloud-ல் சேமிக்கிறது…";await setDoc(ref(),{expenses:data,income,openingBalance,updatedAt:Date.now()});$("syncStatus").textContent="Cloud Sync முடிந்தது ✓"}catch(e){$("syncStatus").textContent="Cloud பிழை: "+(e.code||e.message)}},400)}
 function save(){localSave();queueCloudSave()}
 async function connect(u){
  if(unsub)unsub();cloudReady=false;
  try{
   const r=ref(),snap=await getDoc(r);
-  if(snap.exists()){const remote=snap.data();const map=new Map();[...(remote.expenses||[]),...data].forEach(x=>map.set(String(x.id),x));data=[...map.values()];income={...(remote.income||{}),...income};}
-  localSave();await setDoc(r,{expenses:data,income,updatedAt:Date.now()});
+  if(snap.exists()){const remote=snap.data();const map=new Map();[...(remote.expenses||[]),...data].forEach(x=>map.set(String(x.id),x));data=[...map.values()];income={...(remote.income||{}),...income};openingBalance=Number(remote.openingBalance??openingBalance);}
+  localSave();await setDoc(r,{expenses:data,income,openingBalance,updatedAt:Date.now()});
   cloudReady=true;
-  unsub=onSnapshot(r,s=>{if(!s.exists())return;const v=s.data(),remote=v.expenses||[];const map=new Map();[...remote,...data].forEach(x=>map.set(String(x.id),x));const merged=[...map.values()];const mergedIncome={...(v.income||{}),...income};if(JSON.stringify(merged)!==JSON.stringify(data)||JSON.stringify(mergedIncome)!==JSON.stringify(income)){data=merged;income=mergedIncome;localSave();} $("syncStatus").textContent="Google account-உடன் sync ஆகிறது ✓";},e=>$("syncStatus").textContent="Sync பிழை: "+(e.code||e.message));
+  unsub=onSnapshot(r,s=>{if(!s.exists())return;const v=s.data(),remote=v.expenses||[];if(v.openingBalance!==undefined)openingBalance=Number(v.openingBalance)||0;const map=new Map();[...remote,...data].forEach(x=>map.set(String(x.id),x));const merged=[...map.values()];const mergedIncome={...(v.income||{}),...income};if(JSON.stringify(merged)!==JSON.stringify(data)||JSON.stringify(mergedIncome)!==JSON.stringify(income)){data=merged;income=mergedIncome;localSave();} $("syncStatus").textContent="Google account-உடன் sync ஆகிறது ✓";},e=>$("syncStatus").textContent="Sync பிழை: "+(e.code||e.message));
   $("syncStatus").textContent="Cloud Sync இயங்குகிறது ✓";
  }catch(e){cloudReady=false;$("syncStatus").textContent="Firebase பிழை: "+(e.code||e.message)}
 }
@@ -76,6 +80,13 @@ $("entries").onclick=e=>{const id=e.target.dataset.del;if(id!==undefined){data=d
 $("filters").onclick=e=>{if(e.target.dataset.filter){filter=e.target.dataset.filter;render()}};
 $("viewDate").onchange=render;$("reportMonth").onchange=renderReport;
 $("income").onchange=()=>{income[$("reportMonth").value]=Number($("income").value)||0;save()};
+$("openingBalance").onchange=()=>{openingBalance=Number($("openingBalance").value)||0;save()};
+$("backupButton").onclick=()=>{
+ const rows=[["Date","Description","Amount","Category","Payment"],...data.map(x=>[x.date,x.desc,x.amount,x.category,x.payment])];
+ const csv="\\ufeff"+rows.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\\r\\n");
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download="Daily-Nanban-Backup.csv";a.click();URL.revokeObjectURL(url);
+};
 $("authButton").onclick=async()=>{try{if(user){await signOut(auth);if(unsub)unsub();unsub=null;cloudReady=false}else{await setPersistence(auth,browserLocalPersistence);await signInWithPopup(auth,provider)}}catch(e){$("syncStatus").textContent="Login பிழை: "+(e.code||e.message)}};
 onAuthStateChanged(auth,async u=>{user=u;if(u){$("authTitle").textContent=u.displayName||u.email||"Google account";$("authButton").textContent="Logout";$("syncStatus").textContent="Cloud data ஏற்றப்படுகிறது…";await connect(u)}else{if(unsub)unsub();unsub=null;cloudReady=false;$("authTitle").textContent="Google Cloud Sync";$("authButton").textContent="Google Login";$("syncStatus").textContent="Google Login செய்தால் எல்லா device-களிலும் பதிவுகள் கிடைக்கும்."}});
 
