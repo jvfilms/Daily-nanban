@@ -57,7 +57,12 @@ nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14
 <div id="recurringList"></div>
 <h2 style="margin-top:20px">Payment History</h2><div id="recurringHistory"></div>
 <h2 style="margin-top:20px">Alert History</h2><div id="alertHistory"></div>
-<button class="primary" type="button" id="backupButton">பதிவுகளை CSV-ஆக Download செய்யவும்</button><div class="row"><span>மாத வருமானம்</span><b id="incomeView">₹0</b></div><div class="row"><b>மாதச் சேமிப்பு</b><b id="savingView">₹0</b></div><h2 style="margin-top:20px">செலவு வகை வாரியான கணக்கு</h2><div id="categoryTotals"></div>
+<button class="primary" type="button" id="backupButton">பதிவுகளை CSV-ஆக Download செய்யவும்</button>
+<div style="border:1px solid #f0c9c5;border-radius:14px;padding:12px;margin-top:16px">
+<b>புதிய கணக்கு தொடங்குதல்</b>
+<div class="muted" style="font-size:12px;margin:6px 0">பழைய வருமானம், செலவு, Opening Balance, Budget மற்றும் Payment பதிவுகளை இந்த Google கணக்கின் Cloud-லிருந்தும் நீக்கி Zero-வில் தொடங்கும்.</div>
+<button type="button" class="delete" id="freshStartButton">பழைய பதிவுகளை அழித்து Zero-வில் தொடங்கு</button>
+</div><div class="row"><span>மாத வருமானம்</span><b id="incomeView">₹0</b></div><div class="row"><b>மாதச் சேமிப்பு</b><b id="savingView">₹0</b></div><h2 style="margin-top:20px">செலவு வகை வாரியான கணக்கு</h2><div id="categoryTotals"></div>
 <h2 style="margin-top:20px">Project வாரியான கணக்கு</h2><div id="projectTotals"></div></section>
 <div class="foot">Google Login செய்தால் ஒரே கணக்கு iPhone, Android, Laptop-ல் sync ஆகும்.</div>
 <script type="module">
@@ -222,6 +227,25 @@ $("backupButton").onclick=()=>{
  a.href=url;a.download="Daily-Nanban-Backup.csv";a.click();URL.revokeObjectURL(url);
 };
 $("authButton").onclick=async()=>{try{if(user){await signOut(auth);if(unsub)unsub();unsub=null;cloudReady=false}else{await setPersistence(auth,browserLocalPersistence);await signInWithPopup(auth,provider)}}catch(e){$("syncStatus").textContent="Login பிழை: "+(e.code||e.message)}};
+$("freshStartButton").onclick=async()=>{
+ if(!user){alert("முதலில் Google Login செய்யுங்கள்.");return}
+ if(!confirm("உறுதியா? இந்த Google கணக்கின் பழைய Income, Expense, Opening Balance, Pending Payments, Recurring Bills, Alert History அனைத்தும் Cloud-லிருந்தும் நிரந்தரமாக அழிக்கப்படும். இதை மீண்டும் பெற முடியாது."))return;
+ if(!confirm("கடைசி உறுதி: முழுமையாக ZERO-வில் தொடங்கலாமா?"))return;
+ try{
+  cloudReady=false;if(unsub){unsub();unsub=null}clearTimeout(timer);
+  data=[];income={};incomeEntries=[];openingBalance=0;alertHistory=[];pendingPayments=[];recurringBills=[];recurringInstances=[];
+  ["selavu_entries","selavu_income","selavu_income_entries","selavu_opening_balance","selavu_alert_history","selavu_pending_payments","selavu_recurring_bills","selavu_recurring_instances"].forEach(k=>localStorage.removeItem(k));
+  localStorage.setItem("selavu_monthly_budget","30000");
+  await setDoc(ref(),{expenses:[],income:{},incomeEntries:[],openingBalance:0,alertHistory:[],pendingPayments:[],recurringBills:[],recurringInstances:[],monthlyBudget:30000,resetAt:Date.now(),updatedAt:Date.now()});
+  localSave();cloudReady=true;
+  unsub=onSnapshot(ref(),s=>{
+   if(!s.exists())return;const v=s.data();data=v.expenses||[];income=v.income||{};incomeEntries=v.incomeEntries||[];openingBalance=Number(v.openingBalance)||0;alertHistory=v.alertHistory||[];pendingPayments=v.pendingPayments||[];recurringBills=v.recurringBills||[];recurringInstances=v.recurringInstances||[];
+   if(v.monthlyBudget!==undefined)localStorage.setItem("selavu_monthly_budget",String(v.monthlyBudget));localSave();
+   $("syncStatus").textContent="புதிய Zero கணக்கு Cloud-ல் Sync ஆகிறது ✓";
+  },e=>$("syncStatus").textContent="Sync பிழை: "+(e.code||e.message));
+  $("syncStatus").textContent="புதிய கணக்கு Zero-வில் தொடங்கப்பட்டது ✓";alert("புதிய கணக்கு வெற்றிகரமாக Zero-வில் தொடங்கப்பட்டது.");
+ }catch(e){cloudReady=false;$("syncStatus").textContent="Reset பிழை: "+(e.code||e.message);alert("Cloud Reset முடியவில்லை: "+(e.code||e.message))}
+};
 onAuthStateChanged(auth,async u=>{user=u;if(u){$("authTitle").textContent=u.displayName||u.email||"Google account";$("authButton").textContent="Logout";$("syncStatus").textContent="Cloud data ஏற்றப்படுகிறது…";await connect(u)}else{if(unsub)unsub();unsub=null;cloudReady=false;$("authTitle").textContent="Google Cloud Sync";$("authButton").textContent="Google Login";$("syncStatus").textContent="Google Login செய்தால் எல்லா device-களிலும் பதிவுகள் கிடைக்கும்."}});
 
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(console.error));
